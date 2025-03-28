@@ -14,11 +14,51 @@ const cardsRepository = {
 
   getByName: async (name) => {
     try {
-      const query = 'SELECT * FROM cards WHERE name = $1';
+      const query = 'SELECT * FROM cards WHERE name = $1 ORDER BY set_code DESC LIMIT 1';
       const result = await client.query(query, [name]);
       return result.rows[0];
     } catch (error) {
       console.error('Erro ao buscar carta por nome:', error);
+      throw error;
+    }
+  },
+
+  getBySetAndNumber: async (setCode, collectorNumber) => {
+    try {
+      const query = 'SELECT * FROM cards WHERE set_code = $1 AND collector_number = $2';
+      const result = await client.query(query, [setCode, collectorNumber]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Erro ao buscar carta por set e número:', error);
+      throw error;
+    }
+  },
+
+  searchCards: async (query, setFilter = null) => {
+    try {
+      let queryText;
+      let params;
+      
+      if (setFilter) {
+        queryText = `
+          SELECT * FROM cards 
+          WHERE name ILIKE $1 AND set_code = $2
+          ORDER BY name, set_code
+        `;
+        params = [`%${query}%`, setFilter];
+      } else {
+        queryText = `
+          SELECT * FROM cards 
+          WHERE name ILIKE $1
+          ORDER BY name, set_code
+        `;
+        params = [`%${query}%`];
+      }
+      
+      const result = await client.query(queryText, params);
+      return result.rows;
+    } catch (error) {
+      console.error('Erro na busca flexível:', error);
       throw error;
     }
   },
