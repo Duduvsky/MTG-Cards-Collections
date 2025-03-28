@@ -113,13 +113,28 @@ const bindersRepository = {
 
   addCard: async (binderId, cardId, quantity, condition, notes) => {
     try {
+      // Verificação adicional para garantir que os IDs existem
+      const [binderCheck, cardCheck] = await Promise.all([
+        client.query('SELECT 1 FROM binders WHERE id = $1', [binderId]),
+        client.query('SELECT 1 FROM cards WHERE id = $1', [cardId])
+      ]);
+  
+      if (binderCheck.rowCount === 0) {
+        throw new Error('Binder não encontrado');
+      }
+      if (cardCheck.rowCount === 0) {
+        throw new Error('Carta não encontrada no banco de dados');
+      }
+  
       const query = `
         INSERT INTO binder_cards
           (binder_id, card_id, quantity, condition, notes)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (binder_id, card_id)
         DO UPDATE SET
-          quantity = binder_cards.quantity + EXCLUDED.quantity
+          quantity = binder_cards.quantity + EXCLUDED.quantity,
+          condition = EXCLUDED.condition,
+          notes = EXCLUDED.notes
         RETURNING *;
       `;
       const result = await client.query(query, [
@@ -129,9 +144,20 @@ const bindersRepository = {
         condition,
         notes
       ]);
+      
       return result.rows[0];
     } catch (error) {
       console.error('Erro ao adicionar carta ao binder:', error);
+      
+      // Transforma erros de FK em mensagens mais amigáveis
+      if (error.code === '23503') {
+        if (error.constraint === 'binder_cards_binder_id_fkey') {
+          throw new Error('Binder não encontrado');
+        } else if (error.constraint === 'binder_cards_card_id_fkey') {
+          throw new Error('Carta não encontrada no banco de dados');
+        }
+      }
+      
       throw error;
     }
   },
@@ -213,7 +239,24 @@ const bindersRepository = {
       console.error('Erro ao buscar cartas do binder:', error);
       throw error;
     }
-  }
+  },
+
+  isCardInAnyBinder: async (cardId) => {
+    try {
+      const query = `
+        SELECT COUNT(*) as count FROM binder_cards 
+        WHERE card_id = $1
+      `;
+      const result = await client.query(query, [cardId]);
+      return {
+        count: parseInt(result.rows[0].count),
+        in_binders: result.rows[0].count > 0
+      };
+    } catch (error) {
+      console.error('Erro ao verificar binders:', error);
+      throw error;
+    }
+  },
 };
 
 module.exports = bindersRepository;

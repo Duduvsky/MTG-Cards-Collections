@@ -1,3 +1,4 @@
+const bindersRepository = require('../repositories/bindersRepository');
 const cardsRepository = require('../repositories/cardsRepository');
 const axios = require('axios');
 
@@ -167,26 +168,76 @@ const cardsController = {
   // Exclusão (melhorada)
   delete: async (req, res) => {
     try {
-      const identifier = req.params.id;
+      const identifier = decodeURIComponent(req.params.identifier);
+      const { force } = req.query; // Opcional: força a exclusão mesmo com binders
+  
+      // Verifica se é UUID
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identifier);
       
-      const card = isUUID 
-        ? await cardsRepository.getById(identifier)
-        : await cardsRepository.getByName(identifier);
-      
-      if (!card) {
+      let cardToDelete;
+  
+      if (isUUID) {
+        // Caso 1: Delete por ID
+        cardToDelete = await cardsRepository.getById(identifier);
+      } else {
+        // Caso 2: Delete por nome (busca exata)
+        const cards = await cardsRepository.getExactByName(identifier);
+        
+        if (!cards || cards.length === 0) {
+          return res.status(404).json({ 
+            error: 'Carta não encontrada.',
+            suggestion: 'Verifique o nome exato ou use um ID válido'
+          });
+        }
+  
+        if (cards.length > 1) {
+          return res.status(300).json({
+            error: 'Múltiplas versões encontradas',
+            options: cards.map(c => ({ 
+              id: c.id, 
+              name: c.name, 
+              set: c.set_code,
+              image: c.image_url 
+            })),
+            suggestion: 'Use o ID específico da versão que deseja deletar'
+          });
+        }
+  
+        cardToDelete = cards[0];
+      }
+  
+      if (!cardToDelete) {
         return res.status(404).json({ error: 'Carta não encontrada.' });
       }
-
-      const deletedCard = await cardsRepository.delete(card.id);
-      res.json({ 
-        message: 'Carta excluída com sucesso!',
-        deleted_card: deletedCard
+  
+      // Verifica se a carta está em binders (a menos que force=true)
+      if (force !== 'true') {
+        const inBinders = await bindersRepository.isCardInAnyBinder(cardToDelete.id);
+        if (inBinders.count > 0) {
+          return res.status(400).json({
+            error: 'Carta está vinculada a binders',
+            binder_count: inBinders.count,
+            suggestion: 'Use force=true para deletar mesmo assim (irá remover dos binders automaticamente)'
+          });
+        }
+      }
+  
+      const deletedCard = await cardsRepository.delete(cardToDelete.id);
+      
+      res.json({
+        success: true,
+        message: 'Carta deletada com sucesso',
+        deleted_card: {
+          id: deletedCard.id,
+          name: deletedCard.name,
+          set: deletedCard.set_code
+        }
       });
+  
     } catch (error) {
-      console.error('Erro ao excluir carta:', error);
-      res.status(500).json({ 
-        error: 'Erro ao excluir carta.',
+      console.error('Erro ao deletar carta:', error);
+      res.status(500).json({
+        error: 'Erro interno ao deletar carta',
         details: error.message
       });
     }

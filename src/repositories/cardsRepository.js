@@ -1,21 +1,21 @@
-const client = require('../db/postgresql');
+const client = require("../db/postgresql");
 
 const cardsRepository = {
   getById: async (id) => {
     try {
-      const query = 'SELECT * FROM cards WHERE id = $1';
+      const query = "SELECT * FROM cards WHERE id = $1";
       const result = await client.query(query, [id]);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao buscar carta por ID:', error);
+      console.error("Erro ao buscar carta por ID:", error);
       throw error;
     }
   },
 
   getByName: async (name) => {
     try {
-      const query = 'SELECT * FROM cards WHERE name = $1 ORDER BY set_code DESC LIMIT 1';
-      const result = await client.query(query, [name]);
+      const query = 'SELECT * FROM cards WHERE name ILIKE $1 ORDER BY set_code DESC LIMIT 1';
+      const result = await client.query(query, [`%${name}%`]);
       return result.rows[0];
     } catch (error) {
       console.error('Erro ao buscar carta por nome:', error);
@@ -23,13 +23,30 @@ const cardsRepository = {
     }
   },
 
+  // Busca exata por nome (para delete)
+  getExactByName: async (name) => {
+    try {
+      const query = `
+        SELECT * FROM cards 
+        WHERE name = $1
+        ORDER BY set_code DESC
+      `;
+      const result = await client.query(query, [name]);
+      return result.rows;
+    } catch (error) {
+      console.error('Erro ao buscar carta por nome exato:', error);
+      throw error;
+    }
+  },
+
   getBySetAndNumber: async (setCode, collectorNumber) => {
     try {
-      const query = 'SELECT * FROM cards WHERE set_code = $1 AND collector_number = $2';
+      const query =
+        "SELECT * FROM cards WHERE set_code = $1 AND collector_number = $2";
       const result = await client.query(query, [setCode, collectorNumber]);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao buscar carta por set e número:', error);
+      console.error("Erro ao buscar carta por set e número:", error);
       throw error;
     }
   },
@@ -38,7 +55,7 @@ const cardsRepository = {
     try {
       let queryText;
       let params;
-      
+
       if (setFilter) {
         queryText = `
           SELECT * FROM cards 
@@ -54,11 +71,11 @@ const cardsRepository = {
         `;
         params = [`%${query}%`];
       }
-      
+
       const result = await client.query(queryText, params);
       return result.rows;
     } catch (error) {
-      console.error('Erro na busca flexível:', error);
+      console.error("Erro na busca flexível:", error);
       throw error;
     }
   },
@@ -79,12 +96,12 @@ const cardsRepository = {
         cardData.image_url,
         cardData.usd_price,
         cardData.eur_price,
-        cardData.scryfall_data
+        cardData.scryfall_data,
       ];
       const result = await client.query(query, values);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao criar carta:', error);
+      console.error("Erro ao criar carta:", error);
       throw error;
     }
   },
@@ -111,26 +128,26 @@ const cardsRepository = {
         cardData.usd_price,
         cardData.eur_price,
         cardData.scryfall_data,
-        id
+        id,
       ];
       const result = await client.query(query, values);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao atualizar carta:', error);
+      console.error("Erro ao atualizar carta:", error);
       throw error;
     }
   },
 
   delete: async (id) => {
     try {
-      const query = 'DELETE FROM cards WHERE id = $1 RETURNING *';
+      const query = "DELETE FROM cards WHERE id = $1 RETURNING *";
       const result = await client.query(query, [id]);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao excluir carta:', error);
+      console.error("Erro ao excluir carta:", error);
       throw error;
     }
-  }
+  },
 };
 
 module.exports = cardsRepository;

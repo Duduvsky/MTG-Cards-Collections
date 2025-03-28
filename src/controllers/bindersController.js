@@ -81,39 +81,87 @@ const bindersController = {
       const { cardId, cardName, quantity, condition, notes } = req.body;
       
       if (!cardId && !cardName) {
-        return res.status(400).json({ error: 'cardId ou cardName é obrigatório.' });
+        return res.status(400).json({ 
+          error: 'cardId ou cardName é obrigatório.',
+          suggestion: 'Forneça um ID de carta ou um nome exato'
+        });
+      }
+  
+      // Verifica se o binder existe primeiro
+      const binder = await bindersRepository.getById(req.params.id);
+      if (!binder) {
+        return res.status(404).json({ error: 'Binder não encontrado.' });
       }
   
       let cardToAdd;
       if (cardId) {
-        // Busca pelo ID (comportamento atual)
+        // Busca pelo ID
         cardToAdd = await cardsRepository.getById(cardId);
+        if (!cardToAdd) {
+          return res.status(404).json({ 
+            error: 'Carta não encontrada pelo ID.',
+            cardId,
+            suggestion: 'Verifique o ID ou use o nome da carta'
+          });
+        }
       } else {
-        // Busca pelo nome (nova funcionalidade)
+        // Busca pelo nome (exato)
         cardToAdd = await cardsRepository.getByName(cardName);
+        if (!cardToAdd) {
+          return res.status(404).json({ 
+            error: 'Carta não encontrada pelo nome.',
+            cardName,
+            suggestion: 'Verifique a ortografia ou use a busca flexível primeiro'
+          });
+        }
       }
   
-      if (!cardToAdd) {
-        return res.status(404).json({ error: 'Carta não encontrada no banco de dados.' });
+      // Verificação adicional para garantir que temos um card_id válido
+      if (!cardToAdd.id) {
+        return res.status(500).json({ 
+          error: 'ID da carta inválido.',
+          details: 'A carta foi encontrada mas não tem um ID válido'
+        });
       }
   
       const result = await bindersRepository.addCard(
         req.params.id,
-        cardToAdd.id, // Sempre usa o ID interno
+        cardToAdd.id, // Garantimos que é o ID real
         quantity || 1,
         condition || 'NM',
         notes || ''
       );
   
-      res.status(201).json(result);
+      res.status(201).json({
+        success: true,
+        message: 'Carta adicionada com sucesso',
+        binder_id: req.params.id,
+        card: {
+          id: cardToAdd.id,
+          name: cardToAdd.name,
+          set: cardToAdd.set_code
+        },
+        quantity: quantity || 1,
+        condition: condition || 'NM'
+      });
     } catch (error) {
       console.error('Erro ao adicionar carta ao binder:', error);
+      
+      if (error.message.includes('violates foreign key constraint')) {
+        return res.status(400).json({
+          error: 'Carta não existe no banco de dados',
+          details: 'A carta precisa ser criada primeiro antes de adicionar ao binder',
+          solution: 'Use o endpoint /cards/createFromScryfall primeiro'
+        });
+      }
+      
       res.status(500).json({ 
         error: 'Erro ao adicionar carta ao binder.',
         details: error.message
       });
     }
   },
+  
 
   removeCard: async (req, res) => {
     try {
