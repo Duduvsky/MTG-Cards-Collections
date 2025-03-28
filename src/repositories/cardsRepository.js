@@ -23,6 +23,35 @@ const cardsRepository = {
     }
   },
 
+  getByNameWithSet: async (name, set = null) => {
+    try {
+      let query, params;
+      
+      if (set) {
+        query = `
+          SELECT * FROM cards 
+          WHERE LOWER(name) = LOWER($1)
+          AND LOWER(set_code) = LOWER($2)
+          ORDER BY set_code DESC
+        `;
+        params = [name, set];
+      } else {
+        query = `
+          SELECT * FROM cards 
+          WHERE LOWER(name) = LOWER($1)
+          ORDER BY set_code DESC
+        `;
+        params = [name];
+      }
+      
+      const result = await client.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('Erro ao buscar carta por nome:', error);
+      throw error;
+    }
+  },
+
   // Busca exata por nome (para delete)
   getExactByName: async (name) => {
     try {
@@ -128,12 +157,12 @@ const cardsRepository = {
         cardData.usd_price,
         cardData.eur_price,
         cardData.scryfall_data,
-        id,
+        id
       ];
       const result = await client.query(query, values);
       return result.rows[0];
     } catch (error) {
-      console.error("Erro ao atualizar carta:", error);
+      console.error('Erro ao atualizar carta:', error);
       throw error;
     }
   },

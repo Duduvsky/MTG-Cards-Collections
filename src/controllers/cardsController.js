@@ -139,27 +139,64 @@ const cardsController = {
   // Atualização (melhorada)
   update: async (req, res) => {
     try {
-      // Aceita tanto ID quanto nome como identificador
-      const identifier = req.params.id;
+      const identifier = decodeURIComponent(req.params.identifier);
+      const updateData = req.body;
+      const { set } = req.query; // Parâmetro opcional para especificar o set
+  
+      // Verifica se é UUID
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identifier);
       
-      const card = isUUID 
-        ? await cardsRepository.getById(identifier)
-        : await cardsRepository.getByName(identifier);
-      
-      if (!card) {
+      let cardToUpdate;
+  
+      if (isUUID) {
+        // Caso 1: Update por ID
+        cardToUpdate = await cardsRepository.getById(identifier);
+      } else {
+        // Caso 2: Update por nome
+        const cards = await cardsRepository.getByNameWithSet(identifier, set);
+        
+        if (!cards || cards.length === 0) {
+          return res.status(404).json({ 
+            error: 'Carta não encontrada.',
+            suggestion: 'Verifique o nome ou use um ID válido'
+          });
+        }
+  
+        if (cards.length > 1 && !set) {
+          return res.status(300).json({
+            error: 'Múltiplas versões encontradas',
+            options: cards.map(c => ({ 
+              id: c.id, 
+              name: c.name, 
+              set: c.set_code,
+              image: c.image_url 
+            })),
+            suggestion: 'Especifique o parâmetro ?set=xxx na URL'
+          });
+        }
+  
+        cardToUpdate = set 
+          ? cards.find(c => c.set_code.toLowerCase() === set.toLowerCase())
+          : cards[0];
+      }
+  
+      if (!cardToUpdate) {
         return res.status(404).json({ error: 'Carta não encontrada.' });
       }
-
-      const updatedCard = await cardsRepository.update(card.id, req.body);
+  
+      // Atualiza a carta
+      const updatedCard = await cardsRepository.update(cardToUpdate.id, updateData);
+      
       res.json({
-        message: 'Carta atualizada com sucesso!',
-        card: updatedCard
+        success: true,
+        message: 'Carta atualizada com sucesso',
+        updated_card: updatedCard
       });
+  
     } catch (error) {
       console.error('Erro ao atualizar carta:', error);
-      res.status(500).json({ 
-        error: 'Erro ao atualizar carta.',
+      res.status(500).json({
+        error: 'Erro ao atualizar carta',
         details: error.message
       });
     }
