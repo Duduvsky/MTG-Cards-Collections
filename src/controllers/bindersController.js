@@ -82,12 +82,21 @@ const bindersController = {
       if (!name) {
         return res.status(400).json({ error: 'Parâmetro "name" é obrigatório.' });
       }
-
+  
+      // Substitua por searchByNameWithCards
       const binders = await bindersRepository.searchByName(1, name); // user_id fixo
-      res.json(binders);
+      
+      res.json({
+        success: true,
+        count: binders.length,
+        binders
+      });
     } catch (error) {
-      console.error('Erro ao buscar binders por nome:', error);
-      res.status(500).json({ error: 'Erro ao buscar binders.' });
+      console.error('Erro ao buscar binders:', error);
+      res.status(500).json({ 
+        error: 'Erro ao buscar binders.',
+        details: error.message 
+      });
     }
   },
 

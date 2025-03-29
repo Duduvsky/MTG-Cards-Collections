@@ -56,6 +56,43 @@ const decksRepository = {
     }
   },
 
+  searchByNameWithCards: async (userId, name) => {
+    try {
+      const query = `
+        SELECT 
+          d.*,
+          json_agg(
+            json_build_object(
+              'id', c.id,
+              'name', c.name,
+              'set_code', c.set_code,
+              'image_url', c.image_url,
+              'quantity', dc.quantity,
+              'is_sideboard', dc.is_sideboard
+            ) ORDER BY c.name
+          ) FILTER (WHERE c.id IS NOT NULL) as cards
+        FROM decks d
+        LEFT JOIN deck_cards dc ON d.id = dc.deck_id
+        LEFT JOIN cards c ON dc.card_id = c.id
+        WHERE d.user_id = $1 AND d.name ILIKE $2
+        GROUP BY d.id
+        ORDER BY d.name
+      `;
+      const result = await client.query(query, [userId, `%${name}%`]);
+      
+      // Converte cards null para array vazio e separa mainboard/sideboard
+      return result.rows.map(deck => ({
+        ...deck,
+        cards: deck.cards || [],
+        mainboard: deck.cards ? deck.cards.filter(card => !card.is_sideboard) : [],
+        sideboard: deck.cards ? deck.cards.filter(card => card.is_sideboard) : []
+      }));
+    } catch (error) {
+      console.error("Erro ao buscar decks com cartas:", error);
+      throw error;
+    }
+  },
+
   create: async (deckData) => {
     try {
       const query = `

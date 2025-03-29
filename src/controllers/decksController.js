@@ -90,11 +90,20 @@ const decksController = {
         return res.status(400).json({ error: 'Parâmetro "name" é obrigatório.' });
       }
   
-      const decks = await decksRepository.searchByName(1, name); // ID fixo
-      res.json(decks);
+      // Substitua por searchByNameWithCards
+      const decks = await decksRepository.searchByNameWithCards(1, name); // user_id fixo
+      
+      res.json({
+        success: true,
+        count: decks.length,
+        decks
+      });
     } catch (error) {
-      console.error('Erro ao buscar decks por nome:', error);
-      res.status(500).json({ error: 'Erro ao buscar decks por nome.' });
+      console.error('Erro ao buscar decks:', error);
+      res.status(500).json({ 
+        error: 'Erro ao buscar decks.',
+        details: error.message 
+      });
     }
   },
 

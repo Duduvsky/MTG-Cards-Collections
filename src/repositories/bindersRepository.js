@@ -70,14 +70,34 @@ const bindersRepository = {
   searchByName: async (userId, name) => {
     try {
       const query = `
-        SELECT * FROM binders 
-        WHERE user_id = $1 AND name ILIKE $2
-        ORDER BY name
+        SELECT 
+          b.*,
+          json_agg(
+            json_build_object(
+              'id', c.id,
+              'name', c.name,
+              'set_code', c.set_code,
+              'image_url', c.image_url,
+              'quantity', bc.quantity,
+              'condition', bc.condition
+            ) ORDER BY c.name
+          ) FILTER (WHERE c.id IS NOT NULL) as cards
+        FROM binders b
+        LEFT JOIN binder_cards bc ON b.id = bc.binder_id
+        LEFT JOIN cards c ON bc.card_id = c.id
+        WHERE b.user_id = $1 AND b.name ILIKE $2
+        GROUP BY b.id
+        ORDER BY b.name
       `;
       const result = await client.query(query, [userId, `%${name}%`]);
-      return result.rows;
+      
+      // Converte cards null para array vazio
+      return result.rows.map(binder => ({
+        ...binder,
+        cards: binder.cards || []
+      }));
     } catch (error) {
-      console.error("Erro ao buscar binders por nome:", error);
+      console.error("Erro ao buscar binders com cartas:", error);
       throw error;
     }
   },

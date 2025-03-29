@@ -10,8 +10,9 @@ router.put('/:id', bindersController.update);
 router.delete('/:id', bindersController.delete);
 
 // Rotas para gerenciar cartas nos binders
+router.post('/by-name/:binderName/cards', bindersController.addCardByName);
 router.post('/:id/cards', bindersController.addCard); // Original por ID
-router.post('/by-name/:binderName/cards', bindersController.addCardByName); // Nova por nome
+ // Nova por nome
 router.delete('/:id/cards/:cardId', bindersController.removeCard);
 router.get('/:id/cards', bindersController.listCards);
 router.get('/search/by-name', bindersController.searchByName);
