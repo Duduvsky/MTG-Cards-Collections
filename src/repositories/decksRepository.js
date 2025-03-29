@@ -27,6 +27,35 @@ const decksRepository = {
     }
   },
 
+  getByName: async (userId, name) => {
+    try {
+      const query = `
+        SELECT * FROM decks 
+        WHERE user_id = $1 AND name = $2
+      `;
+      const result = await client.query(query, [userId, name]);
+      return result.rows[0];
+    } catch (error) {
+      console.error("Erro ao buscar deck por nome:", error);
+      throw error;
+    }
+  },
+
+  searchByName: async (userId, name) => {
+    try {
+      const query = `
+        SELECT * FROM decks 
+        WHERE user_id = $1 AND name ILIKE $2
+        ORDER BY name
+      `;
+      const result = await client.query(query, [userId, `%${name}%`]);
+      return result.rows;
+    } catch (error) {
+      console.error("Erro ao buscar decks por nome:", error);
+      throw error;
+    }
+  },
+
   create: async (deckData) => {
     try {
       const query = `
@@ -39,12 +68,12 @@ const decksRepository = {
         deckData.user_id,
         deckData.name,
         deckData.description,
-        deckData.format
+        deckData.format,
       ];
       const result = await client.query(query, values);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao criar deck:', error);
+      console.error("Erro ao criar deck:", error);
       throw error;
     }
   },
@@ -99,7 +128,7 @@ const decksRepository = {
       const result = await client.query(query, values);
       return result.rows[0];
     } catch (error) {
-      console.error('Erro ao adicionar carta ao deck:', error);
+      console.error("Erro ao adicionar carta ao deck:", error);
       throw error;
     }
   },
@@ -123,7 +152,7 @@ const decksRepository = {
       const result = await client.query(query, [deckId]);
       return result.rows;
     } catch (error) {
-      console.error('Erro ao buscar cartas do deck:', error);
+      console.error("Erro ao buscar cartas do deck:", error);
       throw error;
     }
   },

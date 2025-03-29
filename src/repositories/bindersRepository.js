@@ -53,6 +53,35 @@ const bindersRepository = {
     }
   },
 
+  getByName: async (userId, name) => {
+    try {
+      const query = `
+        SELECT * FROM binders 
+        WHERE user_id = $1 AND name = $2
+      `;
+      const result = await client.query(query, [userId, name]);
+      return result.rows[0];
+    } catch (error) {
+      console.error("Erro ao buscar binder por nome:", error);
+      throw error;
+    }
+  },
+
+  searchByName: async (userId, name) => {
+    try {
+      const query = `
+        SELECT * FROM binders 
+        WHERE user_id = $1 AND name ILIKE $2
+        ORDER BY name
+      `;
+      const result = await client.query(query, [userId, `%${name}%`]);
+      return result.rows;
+    } catch (error) {
+      console.error("Erro ao buscar binders por nome:", error);
+      throw error;
+    }
+  },
+
   create: async (binderData) => {
     try {
       const query = `
